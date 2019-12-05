@@ -36,6 +36,11 @@ class MySQLPool(object):
             raise NotImplementedError("max connection could not <= 0")
         self._connections: list = []
         self.max_connection = max_connection
+        self.usr = usr
+        self.pwd = pwd
+        self.db_name = db_name
+        self.host = host
+        self.port = port
         for _ in range(0, max_connection):
             self._connections.append((pymysql.connect(
                 host=host,
@@ -55,12 +60,24 @@ class MySQLPool(object):
                     if not lock:
                         return con, i
                 await asyncio.sleep(0.1)
-        return await _get()
+
+        connection, index = await _get()
+        if not connection.open:
+            connection = self._connections[index] = (pymysql.connect(
+                host=self.host,
+                user=self.usr,
+                password=self.pwd,
+                port=self.port,
+                database=self.db_name,
+                charset="utf8mb4",
+                use_unicode=True,
+            ), False)
+        return connection, index
 
     def release_connection(self, connection_id: int) -> None:
         if connection_id >= self.max_connection:
             raise IndexError("Id is too large.")
-        (con, _) = self._connections
+        (con, _) = self._connections[connection_id]
         self._connections[connection_id] = (con, False)
 
 
@@ -68,11 +85,11 @@ class MySQLContextManager:
     def __init__(self, pool: MySQLPool):
         self.pool = pool
 
-    def __enter__(self):
-        self.connection, self.conn_id = self.pool.get_connection()
-        return self.connection
+    async def __aenter__(self):
+        self.connection, self.conn_id = await self.pool.get_connection()
+        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.pool.release_connection(self.conn_id)
         return True
 
@@ -88,3 +105,10 @@ class SQLObject(metaclass=ABCMeta):
     @abstractmethod
     def exec(self, sql: str):
         pass
+
+
+_MYSQL_FACTORY = MySQLFactory()
+
+
+def get_mysql_factory():
+    return _MYSQL_FACTORY
