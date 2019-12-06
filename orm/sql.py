@@ -8,6 +8,9 @@ from functools import wraps
 from abc import ABCMeta, abstractmethod
 import pymysql
 import asyncio
+import typing
+
+_LIMIT_TYPE = typing.TypeVar("_LIMIT_TYPE", str, range)
 
 
 class MySQLFactory:
@@ -94,17 +97,31 @@ class MySQLContextManager:
         return True
 
 
-class SQLObject(metaclass=ABCMeta):
-    @abstractmethod
+class MySQLCommand(object):
+    _SELECT = "SELECT"
+    _FROM = "FROM"
+    _LIMIT = "LIMIT"
+
     def __init__(self):
-        """
-        Create the sql connector pool
-        """
+        self.command: str = ""
+
+    def exec(self, pool: MySQLPool):
         pass
 
-    @abstractmethod
-    def exec(self, sql: str):
-        pass
+    def SELECT(self, what: str):
+        self.command = self.command.join(f"{self._SELECT} {what}")
+
+    def FROM(self, where: str):
+        self.command = self.command.join(f"{self._FROM} {where}")
+
+    def LIMIT(self, what: _LIMIT_TYPE):
+        if isinstance(what, str):
+            self.command = self.command.join(f"{self._LIMIT} {what}")
+        else:
+            self.command = self.command.join(f"{self._LIMIT} {what.start},{what.stop}")
+
+    def WHERE(self, where: str):
+        self.command = self.command.join(f"{self._FROM} {where}")
 
 
 _MYSQL_FACTORY = MySQLFactory()
