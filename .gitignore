@@ -54,3 +54,7 @@ target/
 
 # C extensions
 *.so
+
+# pycache
+__pycache__
+*.pyc

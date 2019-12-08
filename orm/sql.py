@@ -19,8 +19,8 @@ class MySQLFactory:
 
     def get_pool(self, usr: str, pwd: str, db_name: str, host: str = "localhost", port: int = 3306):
         url: str = f"mysql://{host}:{port}/{db_name}?user={usr}&password={pwd}"
-        if self.pools.get(str(url.__hash__()), None):
-            return self.pools.get(url, None)
+        if self.pools.get(url.__hash__(), None):
+            return self.pools.get(url.__hash__(), None)
         pool = MySQLPool(
             usr=usr,
             pwd=pwd,
@@ -79,7 +79,7 @@ class MySQLPool(object):
 
     def release_connection(self, connection_id: int) -> None:
         if connection_id >= self.max_connection:
-            raise IndexError("Id is too large.")
+            raise IndexError("Id out of pool size")
         (con, _) = self._connections[connection_id]
         self._connections[connection_id] = (con, False)
 
